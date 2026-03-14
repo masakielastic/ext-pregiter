@@ -3,6 +3,7 @@
 #endif
 
 #include "php.h"
+#include "ext/standard/html.h"
 
 #include "pregiter_iterator.h"
 #include "pregiter_arginfo.h"
@@ -48,7 +49,8 @@ static PCRE2_SIZE pregiter_advance_unit(const pregiter_object *intern, PCRE2_SIZ
 {
 	const unsigned char *subject = (const unsigned char *) ZSTR_VAL(intern->subject);
 	size_t subject_len = ZSTR_LEN(intern->subject);
-	unsigned char c;
+	size_t cursor;
+	zend_result status = FAILURE;
 
 	if (offset >= subject_len) {
 		return offset;
@@ -58,36 +60,10 @@ static PCRE2_SIZE pregiter_advance_unit(const pregiter_object *intern, PCRE2_SIZ
 		return offset + 1;
 	}
 
-	c = subject[offset];
-
-	if (c <= 0x7f) {
-		return offset + 1;
-	}
-
-	if (c >= 0xc2 && c <= 0xdf) {
-		if (offset + 1 < subject_len && (subject[offset + 1] & 0xc0) == 0x80) {
-			return offset + 2;
-		}
-		return offset + 1;
-	}
-
-	if (c >= 0xe0 && c <= 0xef) {
-		if (offset + 2 < subject_len
-			&& (subject[offset + 1] & 0xc0) == 0x80
-			&& (subject[offset + 2] & 0xc0) == 0x80) {
-			return offset + 3;
-		}
-		return offset + 1;
-	}
-
-	if (c >= 0xf0 && c <= 0xf4) {
-		if (offset + 3 < subject_len
-			&& (subject[offset + 1] & 0xc0) == 0x80
-			&& (subject[offset + 2] & 0xc0) == 0x80
-			&& (subject[offset + 3] & 0xc0) == 0x80) {
-			return offset + 4;
-		}
-		return offset + 1;
+	cursor = offset;
+	php_next_utf8_char(subject, subject_len, &cursor, &status);
+	if (status == SUCCESS && cursor > offset) {
+		return cursor;
 	}
 
 	return offset + 1;
