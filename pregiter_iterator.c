@@ -48,6 +48,7 @@ static PCRE2_SIZE pregiter_advance_unit(const pregiter_object *intern, PCRE2_SIZ
 {
 	const unsigned char *subject = (const unsigned char *) ZSTR_VAL(intern->subject);
 	size_t subject_len = ZSTR_LEN(intern->subject);
+	unsigned char c;
 
 	if (offset >= subject_len) {
 		return offset;
@@ -57,32 +58,39 @@ static PCRE2_SIZE pregiter_advance_unit(const pregiter_object *intern, PCRE2_SIZ
 		return offset + 1;
 	}
 
-	switch (subject[offset]) {
-		case 0x00 ... 0x7f:
-			return offset + 1;
-		case 0xc2 ... 0xdf:
-			if (offset + 1 < subject_len && (subject[offset + 1] & 0xc0) == 0x80) {
-				return offset + 2;
-			}
-			return offset + 1;
-		case 0xe0 ... 0xef:
-			if (offset + 2 < subject_len
-				&& (subject[offset + 1] & 0xc0) == 0x80
-				&& (subject[offset + 2] & 0xc0) == 0x80) {
-				return offset + 3;
-			}
-			return offset + 1;
-		case 0xf0 ... 0xf4:
-			if (offset + 3 < subject_len
-				&& (subject[offset + 1] & 0xc0) == 0x80
-				&& (subject[offset + 2] & 0xc0) == 0x80
-				&& (subject[offset + 3] & 0xc0) == 0x80) {
-				return offset + 4;
-			}
-			return offset + 1;
-		default:
-			return offset + 1;
+	c = subject[offset];
+
+	if (c <= 0x7f) {
+		return offset + 1;
 	}
+
+	if (c >= 0xc2 && c <= 0xdf) {
+		if (offset + 1 < subject_len && (subject[offset + 1] & 0xc0) == 0x80) {
+			return offset + 2;
+		}
+		return offset + 1;
+	}
+
+	if (c >= 0xe0 && c <= 0xef) {
+		if (offset + 2 < subject_len
+			&& (subject[offset + 1] & 0xc0) == 0x80
+			&& (subject[offset + 2] & 0xc0) == 0x80) {
+			return offset + 3;
+		}
+		return offset + 1;
+	}
+
+	if (c >= 0xf0 && c <= 0xf4) {
+		if (offset + 3 < subject_len
+			&& (subject[offset + 1] & 0xc0) == 0x80
+			&& (subject[offset + 2] & 0xc0) == 0x80
+			&& (subject[offset + 3] & 0xc0) == 0x80) {
+			return offset + 4;
+		}
+		return offset + 1;
+	}
+
+	return offset + 1;
 }
 
 static void pregiter_init_capture_value(zval *dst, pregiter_object *intern, PCRE2_SIZE start, PCRE2_SIZE end)
